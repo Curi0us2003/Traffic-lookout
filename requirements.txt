@@ -1,3 +1,6 @@
-Flask==2.3.3
-firebase-admin==6.2.0
-Werkzeug==2.3.7
+Flask
+firebase-admin
+google-cloud-firestore
+gunicorn
+Pillow
+Werkzeug
