@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - Traffic Lookout{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="leaderboard-header">
+        <h1>🏆 Community Leaderboard</h1>
+        <p>Top contributors making our roads safer</p>
+    </div>
+    
+    <!-- Top 3 Podium -->
+    <div class="podium-section">
+        {% for user in users[:3] %}
+        <div class="podium-card rank-{{ loop.index }}">
+            <div class="podium-rank">
+                {% if loop.index == 1 %}
+                    <div class="trophy gold">🥇</div>
+                {% elif loop.index == 2 %}
+                    <div class="trophy silver">🥈</div>
+                {% else %}
+                    <div class="trophy bronze">🥉</div>
+                {% endif %}
+            </div>
+            <div class="podium-info">
+                <div class="user-name">{{ user.name }}</div>
+                <div class="user-username">@{{ user.username }}</div>
+                <div class="points-display">
+                    <span class="points-number">{{ user.points }}</span>
+                    <span class="points-label">points</span>
+                </div>
+                <div class="complaints-count">
+                    {{ user.complaint_count }} complaints
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Full Leaderboard -->
+    <div class="leaderboard-section">
+        <h2>Full Rankings</h2>
+        <div class="leaderboard-table-container">
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>User</th>
+                        <th>Points</th>
+                        <th>Complaints</th>
+                        <th>Avg. Points</th>
+                        <th>Member Since</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr class="{% if user.username == current_user.username %}current-user{% endif %} {% if loop.index <= 3 %}top-performer{% endif %}">
+                        <td>
+                            <div class="rank-display">
+                                {% if loop.index == 1 %}
+                                    <span class="rank-badge gold">#1</span>
+                                {% elif loop.index == 2 %}
+                                    <span class="rank-badge silver">#2</span>
+                                {% elif loop.index == 3 %}
+                                    <span class="rank-badge bronze">#3</span>
+                                {% else %}
+                                    <span class="rank-badge">#{{ loop.index }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="user-info">
+                                <div class="user-details">
+                                    <div class="name">{{ user.name }}</div>
+                                    <div class="username">@{{ user.username }}</div>
+                                </div>
+                                {% if user.username == current_user.username %}
+                                    <span class="you-badge">You</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="points-cell">
+                                <span class="points-value">{{ user.points }}</span>
+                                <span class="points-unit">pts</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="complaints-cell">
+                                {{ user.complaint_count }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="avg-points">
+                                {% if user.complaint_count > 0 %}
+                                    {{ "%.1f"|format(user.points / user.complaint_count) }}
+                                {% else %}
+                                    0.0
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="join-date">
+                                {{ user.created_at.strftime('%b %Y') if user.created_at else 'N/A' }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Points Information -->
+    <div class="info-section">
+        <div class="info-card">
+            <h3>💰 How to Earn Points</h3>
+            <div class="points-info">
+                <div class="point-rule">
+                    <span class="point-value">+10</span>
+                    <span class="point-desc">Points for each complaint submitted</span>
+                </div>
+                <div class="motivation">
+                    <p>Keep reporting traffic violations to help make our roads safer and climb the leaderboard!</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-card">
+            <h3>📊 Community Stats</h3>
+            <div class="community-stats">
+                <div class="stat-item">
+                    <span class="stat-number">{{ users|length }}</span>
+                    <span class="stat-label">Active Users</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ users|sum(attribute='points') }}</span>
+                    <span class="stat-label">Total Points</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ users|sum(attribute='complaint_count') }}</span>
+                    <span class="stat-label">Total Reports</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="action-buttons">
+        <a href="{{ url_for('submit_complaint') }}" class="btn" style="background: linear-gradient(135deg, #8094ed 0%, #b690dc 100%);">
+            📱 Submit New Complaint
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn secondary">
+            🏠 Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<style>
+/* Base styles with light background */
+/* body {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+} */
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.leaderboard-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.leaderboard-header h1 {
+    color: #2d3748;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.leaderboard-header p {
+    color: #718096;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Podium Section - Cleaner and Lighter */
+.podium-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.podium-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.podium-card .trophy {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.podium-card .user-name {
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: #2d3748;
+}
+
+.podium-card .user-username {
+    font-size: 0.95rem;
+    color: #718096;
+    margin-bottom: 0.5rem;
+}
+
+.points-display {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #2b6cb0;
+    margin: 0.5rem 0;
+}
+
+.points-display .points-label {
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: #4a5568;
+    margin-left: 0.25rem;
+}
+
+.complaints-count {
+    font-size: 0.85rem;
+    color: #718096;
+}
+
+/* Leaderboard Table */
+.leaderboard-section {
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 3rem;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard-table thead th {
+    text-align: left;
+    font-weight: 600;
+    padding: 0.75rem;
+    color: #4a5568;
+    background-color: #f7fafc;
+}
+
+.leaderboard-table tbody td {
+    padding: 0.75rem;
+    border-top: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.rank-badge {
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    background: #edf2f7;
+    color: #2d3748;
+}
+
+.rank-badge.gold {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.rank-badge.silver {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.rank-badge.bronze {
+    background: #fcd34d;
+    color: #92400e;
+}
+
+.current-user {
+    background: #ebf8ff;
+}
+
+.top-performer {
+    font-weight: 600;
+}
+
+/* Info Section */
+.info-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.info-card, .stats-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.info-card h3, .stats-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #2d3748;
+}
+
+.point-rule {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.point-value {
+    background: #ebf8ff;
+    color: #2b6cb0;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+}
+
+.point-desc {
+    color: #4a5568;
+}
+
+.community-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: #718096;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.btn.primary {
+    background: #2b6cb0;
+    color: white;
+}
+
+.btn.primary:hover {
+    background: #2c5282;
+}
+
+.btn.secondary {
+    background: #edf2f7;
+    color: #2d3748;
+}
+
+.btn.secondary:hover {
+    background: #e2e8f0;
+}
+</style>
+{% endblock %}

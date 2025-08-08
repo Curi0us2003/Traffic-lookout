@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Complaint - Traffic Lookout{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 style="color: #667eea; margin-bottom: 2rem;">Submit Traffic Complaint</h1>
+    
+    <form method="POST" enctype="multipart/form-data" id="complaintForm">
+        <div class="form-group">
+            <label for="type">Complaint Type *</label>
+            <select id="type" name="type" required style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px;">
+                <option value="">Select complaint type</option>
+                <option value="Rash Driving">Rash Driving</option>
+                <option value="Signal Jumping">Signal Jumping</option>
+                <option value="Wrong Lane">Wrong Lane</option>
+                <option value="Speed Violation">Speed Violation</option>
+                <option value="Parking Violation">Parking Violation</option>
+                <option value="No Helmet">No Helmet</option>
+                <option value="Drunk Driving">Drunk Driving</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="numberPlate">Vehicle Number Plate</label>
+            <input type="text" id="numberPlate" name="numberPlate" 
+                   placeholder="e.g., KA02BC1234" 
+                   style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px;">
+            <small style="color: #666;">Enter the vehicle number plate if visible</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="photo">Upload Photo *</label>
+            <input type="file" id="photo" name="photo" accept="image/*" capture="environment" required>
+            <small style="color: #666;">Please take a photo of the traffic issue. Image will be automatically compressed for storage.</small>
+            <div id="compressionInfo" style="margin-top: 5px; font-size: 12px; color: #28a745; display: none;"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description *</label>
+            <textarea id="description" name="description" rows="4" 
+                     placeholder="Describe the traffic issue in detail..." 
+                     style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px; resize: vertical; min-height: 100px;" 
+                     required></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Location</label>
+            <div id="locationDisplay" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #e1e5e9; margin-top: 10px;">
+                <div id="locationStatus" style="color: #667eea; font-size: 16px; margin-bottom: 10px;">
+                    🔄 Automatically capturing your location...
+                </div>
+                <div id="locationDetails" style="font-size: 14px; color: #666; display: none;">
+                    <div id="coordinatesDisplay" style="margin-bottom: 5px;"></div>
+                    <div id="addressDisplay" style="font-style: italic;"></div>
+                    <div id="accuracyDisplay" style="font-size: 12px; color: #888; margin-top: 5px;"></div>
+                </div>
+            </div>
+            <input type="hidden" id="latitude" name="latitude">
+            <input type="hidden" id="longitude" name="longitude">
+        </div>
+        
+        <div class="form-group">
+            <label>Preview Photo</label>
+            <div id="photoPreview" style="margin-top: 10px; text-align: center; display: none;">
+                <img id="previewImg" style="max-width: 100%; max-height: 300px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div id="imageSizeInfo" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <button type="submit" class="btn" id="submitBtn" style="flex: 1;" disabled>
+                <span id="submitBtnText">Waiting for location...</span>
+            </button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="flex: 1; text-align: center;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Auto-capture location when page loads
+window.addEventListener('load', function() {
+    autoGetLocation();
+});
+
+function autoGetLocation() {
+    const statusDiv = document.getElementById('locationStatus');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitBtnText = document.getElementById('submitBtnText');
+    
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+        handleLocationFailure('Geolocation not supported by this browser', 'UNSUPPORTED');
+        return;
+    }
+    
+    statusDiv.innerHTML = '🔄 Getting your current location...<br><small>Please allow location access when prompted</small>';
+    statusDiv.style.color = '#667eea';
+    
+    // Try with high accuracy first
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            // Success with high accuracy
+            handleLocationSuccess(position, true);
+        },
+        function(error) {
+            // High accuracy failed, try with lower accuracy
+            console.log('High accuracy failed, trying lower accuracy:', error);
+            
+            statusDiv.innerHTML = '🔄 Refining location...<br><small>Trying with different settings</small>';
+            statusDiv.style.color = '#ffc107';
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    // Success with lower accuracy
+                    handleLocationSuccess(position, false);
+                },
+                function(finalError) {
+                    // Both attempts failed
+                    handleLocationFailure(finalError, 'FAILED');
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 15000,
+                    maximumAge: 300000 // 5 minutes
+                }
+            );
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000 // 1 minute
+        }
+    );
+}
+
+function handleLocationSuccess(position, highAccuracy) {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    const accuracy = position.coords.accuracy;
+    
+    // Store coordinates in hidden fields
+    document.getElementById('latitude').value = lat;
+    document.getElementById('longitude').value = lng;
+    
+    // Update UI
+    const statusDiv = document.getElementById('locationStatus');
+    const locationDetails = document.getElementById('locationDetails');
+    const coordinatesDisplay = document.getElementById('coordinatesDisplay');
+    const accuracyDisplay = document.getElementById('accuracyDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitBtnText = document.getElementById('submitBtnText');
+    
+    // Status message
+    const accuracyText = highAccuracy ? 'High accuracy' : 'Standard accuracy';
+    const accuracyIcon = highAccuracy ? '🎯' : '📍';
+    
+    statusDiv.innerHTML = `${accuracyIcon} Location captured successfully! (${accuracyText})`;
+    statusDiv.style.color = '#28a745';
+    
+    // Show coordinates
+    coordinatesDisplay.innerHTML = `<strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    
+    // Show accuracy
+    const accuracyColor = accuracy < 100 ? '#28a745' : accuracy < 500 ? '#ffc107' : '#dc3545';
+    accuracyDisplay.innerHTML = `<span style="color: ${accuracyColor};">Accuracy: ±${Math.round(accuracy)} meters</span>`;
+    
+    // Show location details
+    locationDetails.style.display = 'block';
+    
+    // Enable submit button
+    submitBtn.disabled = false;
+    submitBtn.style.background = '#667eea';
+    submitBtnText.textContent = 'Submit Complaint';
+    
+    // Try to get address
+    reverseGeocode(lat, lng);
+}
+
+function handleLocationFailure(error, type) {
+    const statusDiv = document.getElementById('locationStatus');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitBtnText = document.getElementById('submitBtnText');
+    
+    let errorMessage = '❌ Unable to get location. ';
+    let canProceed = false;
+    
+    if (type === 'UNSUPPORTED') {
+        errorMessage += 'Geolocation not supported.';
+    } else {
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                errorMessage += 'Location access denied by user.';
+                break;
+            case error.POSITION_UNAVAILABLE:
+                errorMessage += 'Location information unavailable.';
+                break;
+            case error.TIMEOUT:
+                errorMessage += 'Location request timeout.';
+                canProceed = true; // Allow submission without location
+                break;
+            default:
+                errorMessage += 'An unknown error occurred.';
+                canProceed = true;
+                break;
+        }
+    }
+    
+    statusDiv.innerHTML = `${errorMessage}<br><small>You can still submit the complaint, but location information won't be included.</small>`;
+    statusDiv.style.color = '#dc3545';
+    
+    // Enable submit button even without location
+    if (canProceed || type === 'FAILED') {
+        submitBtn.disabled = false;
+        submitBtn.style.background = '#ffc107';
+        submitBtn.style.color = '#000';
+        submitBtnText.textContent = 'Submit Without Location';
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.style.background = '#dc3545';
+        submitBtnText.textContent = 'Cannot Submit - Location Required';
+    }
+    
+    // Try IP-based location as fallback
+    tryIPLocation();
+}
+
+function tryIPLocation() {
+    fetch('https://ipapi.co/json/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.latitude && data.longitude) {
+                const statusDiv = document.getElementById('locationStatus');
+                const locationDetails = document.getElementById('locationDetails');
+                const coordinatesDisplay = document.getElementById('coordinatesDisplay');
+                const addressDisplay = document.getElementById('addressDisplay');
+                const accuracyDisplay = document.getElementById('accuracyDisplay');
+                
+                // Update status
+                statusDiv.innerHTML = `🌐 Using approximate location from IP address<br><small>This is less accurate but allows you to submit the complaint</small>`;
+                statusDiv.style.color = '#17a2b8';
+                
+                // Store approximate coordinates
+                document.getElementById('latitude').value = data.latitude;
+                document.getElementById('longitude').value = data.longitude;
+                
+                // Show details
+                coordinatesDisplay.innerHTML = `<strong>Approximate Coordinates:</strong> ${data.latitude}, ${data.longitude}`;
+                addressDisplay.innerHTML = `<strong>Approximate Location:</strong> ${data.city}, ${data.region}, ${data.country_name}`;
+                accuracyDisplay.innerHTML = `<span style="color: #dc3545;">Accuracy: City-level (approximate)</span>`;
+                
+                locationDetails.style.display = 'block';
+                
+                // Enable submit button
+                const submitBtn = document.getElementById('submitBtn');
+                const submitBtnText = document.getElementById('submitBtnText');
+                submitBtn.disabled = false;
+                submitBtn.style.background = '#17a2b8';
+                submitBtn.style.color = 'white';
+                submitBtnText.textContent = 'Submit with Approximate Location';
+            }
+        })
+        .catch(error => {
+            console.log('IP location also failed:', error);
+        });
+}
+
+function reverseGeocode(lat, lng) {
+    // Get address from coordinates
+    fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
+        .then(response => response.json())
+        .then(data => {
+            const addressDisplay = document.getElementById('addressDisplay');
+            if (data.display_name || data.locality) {
+                const address = data.display_name || `${data.locality}, ${data.city}`;
+                addressDisplay.innerHTML = `<strong>Address:</strong> ${address}`;
+            } else {
+                addressDisplay.innerHTML = `<strong>Address:</strong> Address lookup unavailable`;
+            }
+        })
+        .catch(error => {
+            console.log('Reverse geocoding failed:', error);
+            const addressDisplay = document.getElementById('addressDisplay');
+            addressDisplay.innerHTML = `<strong>Address:</strong> Address lookup failed`;
+        });
+}
+
+// Photo preview functionality
+document.getElementById('photo').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        // Show file size info
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        document.getElementById('imageSizeInfo').innerHTML = `Original size: ${fileSizeMB} MB`;
+        
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('previewImg');
+            img.src = e.target.result;
+            document.getElementById('photoPreview').style.display = 'block';
+            
+            // Calculate estimated compressed size
+            const base64Length = e.target.result.length;
+            const estimatedSizeKB = (base64Length * 0.75 / 1024).toFixed(1);
+            
+            let compressionMsg = `Estimated storage size: ${estimatedSizeKB} KB`;
+            let infoColor = '#28a745';
+            
+            if (estimatedSizeKB > 900) {
+                compressionMsg += ' (Will be stored in chunks - this may take longer)';
+                infoColor = '#dc3545';
+            } else if (estimatedSizeKB > 600) {
+                compressionMsg += ' (Large image - will be compressed)';
+                infoColor = '#ffc107';
+            }
+            
+            const compressionInfo = document.getElementById('compressionInfo');
+            compressionInfo.innerHTML = compressionMsg;
+            compressionInfo.style.color = infoColor;
+            compressionInfo.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        document.getElementById('photoPreview').style.display = 'none';
+        document.getElementById('compressionInfo').style.display = 'none';
+    }
+});
+
+// Form submission validation
+document.getElementById('complaintForm').addEventListener('submit', function(e) {
+    const photo = document.getElementById('photo').files[0];
+    const description = document.getElementById('description').value.trim();
+    const type = document.getElementById('type').value;
+    const submitBtn = document.getElementById('submitBtn');
+    const submitBtnText = document.getElementById('submitBtnText');
+    
+    if (!photo) {
+        alert('Please select a photo to upload.');
+        e.preventDefault();
+        return;
+    }
+    
+    if (!description) {
+        alert('Please provide a description of the issue.');
+        e.preventDefault();
+        return;
+    }
+    
+    if (!type) {
+        alert('Please select a complaint type.');
+        e.preventDefault();
+        return;
+    }
+    
+    // Show processing indicator
+    submitBtn.disabled = true;
+    submitBtn.style.background = '#ffc107';
+    submitBtn.style.color = '#000';
+    submitBtnText.textContent = 'Processing Image...';
+    
+    // Add a small delay to show the processing message
+    setTimeout(() => {
+        submitBtnText.textContent = 'Submitting Complaint...';
+    }, 500);
+});
+
+// Check location permissions on page load
+if ('permissions' in navigator) {
+    navigator.permissions.query({name: 'geolocation'}).then(function(result) {
+        console.log('Geolocation permission:', result.state);
+        
+        result.addEventListener('change', function() {
+            console.log('Geolocation permission changed to:', this.state);
+            if (this.state === 'granted') {
+                // Re-attempt location capture if permission was granted
+                const lat = document.getElementById('latitude').value;
+                if (!lat) {
+                    autoGetLocation();
+                }
+            }
+        });
+    });
+}
+</script>
+
+<style>
+/* Enhanced styles for auto-location */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#locationDisplay {
+    transition: all 0.3s ease;
+    border-left: 4px solid #667eea;
+}
+
+#locationDisplay.success {
+    border-left-color: #28a745;
+    background: #d4edda;
+}
+
+#locationDisplay.warning {
+    border-left-color: #ffc107;
+    background: #fff3cd;
+}
+
+#locationDisplay.error {
+    border-left-color: #dc3545;
+    background: #f8d7da;
+}
+
+#photoPreview img {
+    border: 2px solid #e1e5e9;
+    transition: all 0.3s ease;
+}
+
+#photoPreview img:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+#compressionInfo {
+    padding: 8px;
+    border-radius: 4px;
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+/* Loading animation for location status */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+#locationStatus:has-text("🔄") {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive design for location display */
+@media (max-width: 768px) {
+    #locationDetails {
+        font-size: 13px;
+    }
+    
+    #coordinatesDisplay {
+        word-break: break-all;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complaint Details - Traffic Violation System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .complaint-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .complaint-card {
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .status-badge {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+        }
+        .status-pending { background-color: #ffc107; color: #000; }
+        .status-approved { background-color: #28a745; color: #fff; }
+        .status-rejected { background-color: #dc3545; color: #fff; }
+        .status-under-review { background-color: #17a2b8; color: #fff; }
+        
+        .complaint-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .info-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .map-container {
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .btn-back {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            transition: transform 0.2s;
+        }
+        
+        .btn-back:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Header -->
+    <div class="complaint-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="mb-2"><i class="fas fa-file-alt me-2"></i>Complaint Details</h1>
+                    <p class="mb-0">Complaint ID: <code>{{ complaint.doc_id }}</code></p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <a href="{% if user.role == 'admin' %}{{ url_for('admin_panel') }}{% else %}{{ url_for('dashboard') }}{% endif %}" 
+                       class="btn btn-back">
+                        <i class="fas fa-arrow-left me-2"></i>Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- Main Complaint Details -->
+            <div class="col-lg-8">
+                <div class="card complaint-card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Complaint Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-user me-2"></i>Reporter Name:</strong><br>
+                                    {{ complaint.Name or 'N/A' }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-phone me-2"></i>Phone Number:</strong><br>
+                                    {{ complaint.Phone or 'N/A' }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-tag me-2"></i>Complaint Type:</strong><br>
+                                    {{ complaint.type or 'Traffic Violation' }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-car me-2"></i>Number Plate:</strong><br>
+                                    <code>{{ complaint.numberPlate or 'Not specified' }}</code>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <strong><i class="fas fa-file-text me-2"></i>Description:</strong><br>
+                            {{ complaint.description or 'No description provided' }}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-flag me-2"></i>Status:</strong><br>
+                                    <span class="status-badge status-{{ complaint.status or 'pending' }}">
+                                        {{ (complaint.status or 'pending').title() }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-calendar me-2"></i>Submitted:</strong><br>
+                                    {{ complaint.created_at_display or complaint.time or 'N/A' }}
+                                </div>
+                            </div>
+                            {% if complaint.updated_at_display %}
+                            <div class="col-md-4">
+                                <div class="info-item">
+                                    <strong><i class="fas fa-calendar-check me-2"></i>Last Updated:</strong><br>
+                                    {{ complaint.updated_at_display }}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Photo Evidence -->
+                {% if complaint.has_image and complaint.photo %}
+                <div class="card complaint-card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-camera me-2"></i>Photo Evidence</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <img src="{{ complaint.photo }}" alt="Complaint Photo" class="complaint-image">
+                        <p class="mt-2 text-muted"><small>Click to view full size</small></p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Location and Actions -->
+            <div class="col-lg-4">
+                <!-- Location -->
+                <div class="card complaint-card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>Location</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if complaint.latitude and complaint.longitude %}
+                            <div class="info-item">
+                                <strong>Coordinates:</strong><br>
+                                <code>{{ complaint.location_display }}</code>
+                            </div>
+                            
+                            <!-- Google Maps -->
+                            <div class="map-container" id="map"></div>
+                            
+                            <div class="mt-3">
+                                <a href="https://www.google.com/maps?q={{ complaint.latitude }},{{ complaint.longitude }}" 
+                                   target="_blank" class="btn btn-success btn-sm w-100">
+                                    <i class="fas fa-external-link-alt me-2"></i>Open in Google Maps
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="info-item text-center">
+                                <i class="fas fa-map-marker-alt fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">{{ complaint.location_display }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Admin Actions -->
+                {% if user.role == 'admin' %}
+                <div class="card complaint-card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Admin Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('update_complaint_status') }}">
+                            <input type="hidden" name="complaint_id" value="{{ complaint.doc_id }}">
+                            
+                            <div class="mb-3">
+                                <label for="status" class="form-label">Update Status:</label>
+                                <select name="status" id="status" class="form-select" required>
+                                    <option value="pending" {% if complaint.status == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="under-review" {% if complaint.status == 'under-review' %}selected{% endif %}>Under Review</option>
+                                    <option value="approved" {% if complaint.status == 'approved' %}selected{% endif %}>Approved</option>
+                                    <option value="rejected" {% if complaint.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-save me-2"></i>Update Status
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Google Maps -->
+    {% if complaint.latitude and complaint.longitude %}
+    <script>
+        function initMap() {
+            const location = { lat: {{ complaint.latitude }}, lng: {{ complaint.longitude }} };
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: location,
+            });
+            const marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: "Complaint Location"
+            });
+        }
+    </script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap">
+    </script>
+    {% endif %}
+
+    <!-- Image Modal -->
+    <script>
+        // Make image clickable for full view
+        document.addEventListener('DOMContentLoaded', function() {
+            const images = document.querySelectorAll('.complaint-image');
+            images.forEach(img => {
+                img.style.cursor = 'pointer';
+                img.addEventListener('click', function() {
+                    window.open(this.src, '_blank');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

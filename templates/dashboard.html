@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Traffic Lookout{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="welcome-section">
+        <h1 style="color: #f6f6f6; margin-bottom: 1rem;">Welcome, {{ user.name }}!</h1>
+        
+        <!-- Points Display Section -->
+        <div class="points-card">
+            <div class="points-info">
+                <div class="points-display">
+                    <span class="points-number">{{ user_points }}</span>
+                    <span class="points-label">Points</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ complaints_count }}</span>
+                        <span class="stat-label">Complaints</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ (user_points / 10)|int }}</span>
+                        <span class="stat-label">Rewards Earned</span>
+                    </div>
+                </div>
+            </div>
+            <div class="points-actions">
+                <a href="{{ url_for('leaderboard') }}" class="btn-secondary">View Leaderboard</a>
+                <small style="color: #f4efef; margin-top: 1.5rem; display: block;">
+                    💡 Earn 10 points for each complaint you submit!
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="dashboard-actions">
+        <a href="{{ url_for('submit_complaint') }}" class="btn" style="background: linear-gradient(135deg, #8094ed 0%, #b690dc 100%);">
+            📱 Submit New Complaint
+        </a>
+        <a href="{{ url_for('profile') }}" class="btn btn-secondary">View Profile</a>
+    </div>
+    
+    <!-- Complaints Section -->
+    <section class="complaints-section">
+        <h2>Your Complaints</h2>
+        {% if complaints %}
+            <div class="complaints-grid">
+                {% for complaint in complaints %}
+                <div class="complaint-card">
+                    <div class="complaint-header">
+                        <span class="complaint-type">{{ complaint.type }}</span>
+                        <span class="complaint-status status-{{ complaint.status }}">
+                            {{ complaint.status.replace('_', ' ').title() }}
+                        </span>
+                    </div>
+                    
+                    {% if complaint.has_image %}
+                        <div class="complaint-image">
+                            {% if complaint.image_url %}
+                                <img id="img-{{ complaint.doc_id }}" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNsaWNrIHRvIExvYWQ8L3RleHQ+PC9zdmc+" alt="Complaint Photo" onclick="loadImage('{{ complaint.doc_id }}')">
+                            {% else %}
+                                <img src="{{ complaint.photo }}" alt="Complaint Photo" onclick="enlargeImage(this)">
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="complaint-details">
+                        {% if complaint.numberPlate %}
+                            <p><strong>Vehicle:</strong> {{ complaint.numberPlate }}</p>
+                        {% endif %}
+                        <p><strong>Description:</strong> {{ complaint.description[:100] }}{% if complaint.description|length > 100 %}...{% endif %}</p>
+                        <p><strong>Date:</strong> {{ complaint.created_at.strftime('%Y-%m-%d %H:%M') if complaint.created_at else complaint.time }}</p>
+                        {% if complaint.Location %}
+                            <p><strong>Location:</strong> 
+                                <a href="https://maps.google.com/?q={{ complaint.Location.latitude }},{{ complaint.Location.longitude }}" target="_blank" class="location-link">
+                                    View on Map
+                                </a>
+                            </p>
+                        {% endif %}
+                        <div class="points-earned">
+                            <span class="points-badge">+10 Points Earned</span>
+                        </div>
+                    </div>
+                    
+                    <div class="complaint-actions">
+                        <a href="{{ url_for('view_complaint', complaint_id=complaint.doc_id) }}" class="btn-small">View Details</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-complaints">
+                <div class="empty-state">
+                    <h3>No complaints yet</h3>
+                    <p>Start by submitting your first traffic complaint and earn your first 10 points!</p>
+                    <a href="{{ url_for('submit_complaint') }}" class="btn">Submit Your First Complaint</a>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" class="modal">
+    <span class="close">&times;</span>
+    <img class="modal-content" id="modalImage">
+    <div id="caption"></div>
+</div>
+
+<style>
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.welcome-section {
+    margin-bottom: 2rem;
+    /* background-color: white; */
+}
+
+.points-card {
+    background: linear-gradient(135deg, #9d66e0 0%, #7f7fe2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.points-info {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.points-display {
+    text-align: center;
+}
+
+.points-number {
+    display: block;
+    font-size: 3rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.points-label {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.points-actions {
+    text-align: center;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.dashboard-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.complaints-section h2 {
+    color: #333;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.complaints-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
+}
+
+.complaint-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e1e5e9;
+}
+
+.complaint-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.complaint-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.complaint-type {
+    background: #667eea;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.complaint-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-in_progress {
+    background: #cce7ff;
+    color: #004085;
+}
+
+.status-resolved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-rejected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.complaint-image {
+    margin-bottom: 1rem;
+}
+
+.complaint-image img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.complaint-image img:hover {
+    transform: scale(1.02);
+}
+
+.complaint-details p {
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.location-link {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.location-link:hover {
+    text-decoration: underline;
+}
+
+.points-earned {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.points-badge {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.complaint-actions {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.btn-small {
+    background: #667eea;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background 0.3s ease;
+}
+
+.btn-small:hover {
+    background: #5a67d8;
+}
+
+.no-complaints {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.empty-state h3 {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.empty-state p {
+    color: #888;
+    margin-bottom: 2rem;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    padding-top: 100px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.9);
+}
+
+.modal-content {
+    margin: auto;
+    display: block;
+    width: 80%;
+    max-width: 700px;
+}
+
+.close {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: #bbb;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .points-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 1.5rem;
+    }
+    
+    .points-info {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .dashboard-actions {
+        flex-direction: column;
+    }
+    
+    .complaints-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .complaint-card {
+        padding: 1rem;
+    }
+}
+</style>
+
+<script>
+// Load chunked images
+function loadImage(recordId) {
+    fetch(`/get_image/${recordId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.photo) {
+                const img = document.getElementById(`img-${recordId}`);
+                img.src = data.photo;
+                img.onclick = function() { enlargeImage(this); };
+            }
+        })
+        .catch(error => console.error('Error loading image:', error));
+}
+
+// Enlarge image in modal
+function enlargeImage(img) {
+    const modal = document.getElementById("imageModal");
+    const modalImg = document.getElementById("modalImage");
+    const captionText = document.getElementById("caption");
+    
+    modal.style.display = "block";
+    modalImg.src = img.src;
+    captionText.innerHTML = img.alt;
+}
+
+// Close modal
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById("imageModal");
+    const span = document.getElementsByClassName("close")[0];
+    
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+    
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+});
+</script>
+{% endblock %}
