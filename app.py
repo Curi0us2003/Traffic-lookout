@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 import hashlib
 import os
 from functools import wraps
@@ -33,14 +34,14 @@ def hash_password(password):
 def username_exists(username):
     """Check if username already exists"""
     users_ref = db.collection("users")
-    query = users_ref.where("username", "==", username).limit(1)
+    query = users_ref.where(filter=FieldFilter("username", "==", username)).limit(1)
     docs = list(query.stream())
     return len(docs) > 0
 
 def get_user_by_username(username):
     """Get user data by username"""
     users_ref = db.collection("users")
-    query = users_ref.where("username", "==", username).limit(1)
+    query = users_ref.where(filter=FieldFilter("username", "==", username)).limit(1)
     docs = query.stream()
     
     for doc in docs:
@@ -343,9 +344,9 @@ def dashboard():
     if user and user.get('role') == 'admin':
         return redirect(url_for('admin_panel'))
     
-    # Get user's records - simple query without ordering to avoid index requirement
+    # Get user's records using new FieldFilter syntax
     records_ref = db.collection("records")
-    query = records_ref.where("user_id", "==", session['user_id'])
+    query = records_ref.where(filter=FieldFilter("user_id", "==", session['user_id']))
     user_records = []
     
     for doc in query.stream():
@@ -752,9 +753,9 @@ def update_complaint_status():
 def leaderboard():
     """Display user leaderboard based on points"""
     try:
-        # Get all users with points
+        # Get all users with points using new FieldFilter syntax
         users_ref = db.collection("users")
-        query = users_ref.where("role", "==", "user")  # Only regular users
+        query = users_ref.where(filter=FieldFilter("role", "==", "user"))  # Only regular users
         
         leaderboard_users = []
         for doc in query.stream():
@@ -766,7 +767,7 @@ def leaderboard():
             user_data['points'] = user_data.get('points', 0)
             
             # Get complaint count for each user
-            user_complaints = db.collection("records").where("user_id", "==", doc.id).stream()
+            user_complaints = db.collection("records").where(filter=FieldFilter("user_id", "==", doc.id)).stream()
             user_data['complaint_count'] = len(list(user_complaints))
             
             leaderboard_users.append(user_data)
@@ -801,7 +802,7 @@ def profile():
     
     # Get user's complaint count
     if user:
-        user_complaints = db.collection("records").where("user_id", "==", user['doc_id']).stream()
+        user_complaints = db.collection("records").where(filter=FieldFilter("user_id", "==", user['doc_id'])).stream()
         complaint_count = len(list(user_complaints))
         user['complaint_count'] = complaint_count
         user['points'] = user.get('points', 0)
@@ -820,8 +821,8 @@ def api_records():
         if user and user.get('role') == 'admin':
             query = records_ref
         else:
-            # If regular user, get only their records
-            query = records_ref.where("user_id", "==", session['user_id'])
+            # If regular user, get only their records using new FieldFilter syntax
+            query = records_ref.where(filter=FieldFilter("user_id", "==", session['user_id']))
         
         records = []
         for doc in query.stream():
@@ -872,4 +873,4 @@ def api_records():
         }), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)
